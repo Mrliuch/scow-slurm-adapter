@@ -1161,7 +1161,17 @@ func (s *ServerConfig) GetClusterInfo(ctx context.Context, in *pb.GetClusterInfo
 			if runningJobNum != 0 {
 				// 获取正在使用的GPU卡数
 				useGpuCardstr := fmt.Sprintf("squeue -p %s -t r ", v)
-				useGpuCardCmd := useGpuCardstr + " " + " --format='%b' --noheader | awk -F':' '{print $3}' | awk '{sum+=$1} END {print sum}'"
+				useGpuCardCmd := useGpuCardstr + " " + ` --format='%b %D' | awk -F'[/: ]' '
+{
+    for (i = 1; i <= NF; i++) {
+        if ($i == "gpu") {
+            gpu = $(i+1);  # 提取 GPU 数量
+        }
+    }
+    nodes = $NF;  # 提取节点数量（最后一列）
+    sum += gpu * nodes;  # 计算总的 GPU 使用量
+}
+END {print sum}'`
 				useGpuCardResult, err := utils.RunCommand(useGpuCardCmd)
 				if err != nil || utils.CheckSlurmStatus(useGpuCardResult) {
 					errInfo := &errdetails.ErrorInfo{
